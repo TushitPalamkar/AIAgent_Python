@@ -42,6 +42,7 @@ If it cannot, respond with a helpful explanation.
     messages=[
         types.Content(role="user", parts=[types.Part(text=prompt)])
     ]
+    max_iter=15
     available_functions=types.Tool(
         function_declarations=[schema_get_files_info
                                ,schema_get_file_content,
@@ -53,28 +54,36 @@ If it cannot, respond with a helpful explanation.
         tools=[available_functions],
              system_instruction=system_prompt)
     
-    response=client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=messages,
-        config=config
-        )
+    for i in range(0,max_iter):
+
+        response=client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=messages,
+            config=config
+            )
+        
     
-   
-    if response is None or response.usage_metadata is None:
-        print("No usage metadata available.")
-        exit(1)
-    
-    if verbose_flag:
-        print(f"User Prompt: {prompt}")
-        print(f"Prompt Tokens: {response.usage_metadata.prompt_token_count}")
-        print(f"Response Tokens: {response.usage_metadata.candidates_token_count}")
-    
-    if response.function_calls:
-        print(response.function_calls)
-        for fc in response.function_calls:
-           result = call_function(fc, verbose=verbose_flag)
-           print(result)           
-    else:
-        print(response.text)
+        if response is None or response.usage_metadata is None:
+            print("No usage metadata available.")
+            exit(1)
+        
+        if verbose_flag:
+            print(f"User Prompt: {prompt}")
+            print(f"Prompt Tokens: {response.usage_metadata.prompt_token_count}")
+            print(f"Response Tokens: {response.usage_metadata.candidates_token_count}")
+        if response.candidates:
+            for candidate in response.candidates:
+                if candidate is None or candidate.content is None:
+                    continue
+                messages.append(candidate.content)
+        if response.function_calls:
+            print(response.function_calls)
+            for fc in response.function_calls:
+                result = call_function(fc, verbose=verbose_flag)
+                messages.append(result)
+                print(result)           
+        else:
+            print(response.text)
+            return
 # print(get_files_info("calculator",'pkg'))
 main()
